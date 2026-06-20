@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pretect — Unit History</title>
+<style>
+  :root {
+    --navy: #1F2D3D;
+    --navy-light: #2C3E50;
+    --red: #C0392B;
+    --gray-bg: #F4F5F7;
+    --gray-line: #DADFE3;
+    --gray-text: #5A6470;
+    --good: #2E7D32;
+    --watch: #B8860B;
+    --bad: #C0392B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: var(--gray-bg);
+    color: var(--navy);
+  }
+  header {
+    background: var(--navy); color: white; padding: 16px 20px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+  header .sub { font-size: 12px; color: #AEB8C2; margin-top: 2px; }
+  .step-bar {
+    background: white; border-bottom: 1px solid var(--gray-line);
+    padding: 14px 16px; position: sticky; top: 64px; z-index: 9;
+  }
+  .step-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-text); margin-bottom: 6px; font-weight: 700; }
+  .typeahead-wrap { position: relative; margin-bottom: 10px; }
+  .typeahead-wrap:last-child { margin-bottom: 0; }
+  .typeahead-input {
+    width: 100%; padding: 10px 12px; font-size: 15px;
+    border: 1px solid var(--gray-line); border-radius: 6px; outline: none;
+  }
+  .typeahead-input:focus { border-color: var(--navy-light); }
+  .typeahead-input:disabled { background: var(--gray-bg); color: #AEB8C2; cursor: not-allowed; }
+  .typeahead-list {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: white; border: 1px solid var(--gray-line); border-top: none;
+    border-radius: 0 0 6px 6px; max-height: 240px; overflow-y: auto;
+    z-index: 20; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  }
+  .typeahead-list.open { display: block; }
+  .typeahead-item { padding: 10px 12px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #F0F0F0; }
+  .typeahead-item:last-child { border-bottom: none; }
+  .typeahead-item:hover, .typeahead-item.active { background: var(--gray-bg); }
+  .typeahead-item .sub { font-size: 11px; color: var(--gray-text); margin-top: 2px; }
+  .selected-chip {
+    display: none; align-items: center; justify-content: space-between;
+    background: #EAF1F8; border: 1px solid #C7D7E8; border-radius: 6px;
+    padding: 8px 12px; font-size: 14px; font-weight: 600; margin-bottom: 10px;
+  }
+  .selected-chip.show { display: flex; }
+  .selected-chip .clear-btn { color: var(--red); font-size: 12px; font-weight: 700; cursor: pointer; background: none; border: none; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .state-msg { text-align: center; color: var(--gray-text); font-size: 14px; padding: 40px 20px; }
+  .unit-banner { background: white; border: 1px solid var(--gray-line); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+  .unit-banner .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-text); margin-bottom: 2px; }
+  .unit-banner .value { font-size: 20px; font-weight: 700; }
+  .unit-banner .count { font-size: 13px; color: var(--gray-text); margin-top: 4px; }
+  .visit-card { background: white; border: 1px solid var(--gray-line); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+  .visit-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; user-select: none; }
+  .visit-head:active { background: var(--gray-bg); }
+  .visit-date { font-weight: 700; font-size: 15px; }
+  .visit-tech { font-size: 12px; color: var(--gray-text); margin-top: 2px; }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px; }
+  .status-good { background: #E8F5E9; color: var(--good); }
+  .status-watch { background: #FFF8E1; color: var(--watch); }
+  .status-bad { background: #FDECEA; color: var(--bad); }
+  .status-neutral { background: #ECEFF1; color: var(--gray-text); }
+  .visit-body { display: none; padding: 0 16px 16px 16px; border-top: 1px solid var(--gray-line); }
+  .visit-body.open { display: block; }
+  .field-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #EFEFEF; font-size: 13px; gap: 12px; }
+  .field-row:last-child { border-bottom: none; }
+  .field-row .k { color: var(--gray-text); flex-shrink: 0; }
+  .field-row .v { text-align: right; font-weight: 500; }
+  .notes-block { margin-top: 10px; padding: 10px 12px; background: var(--gray-bg); border-radius: 6px; font-size: 13px; line-height: 1.5; }
+  .notes-block .k { font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--gray-text); margin-bottom: 4px; }
+  .chevron { transition: transform 0.15s ease; color: var(--gray-text); font-size: 12px; }
+  .chevron.open { transform: rotate(180deg); }
+  .error-box { background: #FDECEA; border: 1px solid #F5C6C2; color: var(--bad); padding: 14px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+  .config-note { font-size: 11px; color: var(--gray-text); text-align: center; padding: 24px 16px 8px 16px; }
+  .spinner-text { font-size: 13px; color: var(--gray-text); padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PRETECT — Unit Service History</h1>
+  <div class="sub">Select a building, then a unit, to see every past inspection</div>
+</header>
+
+<div class="step-bar">
+  <div class="step-label">1. Building</div>
+  <div class="typeahead-wrap">
+    <input type="text" id="buildingInput" class="typeahead-input" placeholder="Type to search buildings…" autocomplete="off" />
+    <div id="buildingList" class="typeahead-list"></div>
+  </div>
+  <div id="buildingChip" class="selected-chip">
+    <span id="buildingChipText"></span>
+    <button class="clear-btn" onclick="clearBuilding()">CHANGE</button>
+  </div>
+
+  <div class="step-label" style="margin-top:12px;">2. Unit</div>
+  <div class="typeahead-wrap">
+    <input type="text" id="unitInput" class="typeahead-input" placeholder="Select a building first…" autocomplete="off" disabled />
+    <div id="unitList" class="typeahead-list"></div>
+  </div>
+  <div id="unitChip" class="selected-chip">
+    <span id="unitChipText"></span>
+    <button class="clear-btn" onclick="clearUnit()">CHANGE</button>
+  </div>
+</div>
+
+<main id="results">
+  <div class="state-msg">Select a building and unit above to view service history.</div>
+</main>
+
+<div class="config-note">Internal tool — Pretect field use only</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+// SECURITY NOTE: token hardcoded for internal testing only. Move to a
+// backend proxy before this is shared with field techs — never ship an
+// API token in client-side JS that anyone can view-source.
+const API_TOKEN = 'd6223d4f0377f79f283b2afcfc3726661188a4feb047f9519e7720c67636adb15e5e4141118dac6b';
+const VFD_FORM_ID = '6c231c72-8a9b-403c-86fc-8ed66e4dc919';
+const EQUIPMENT_FORM_ID = '0bf1e57e-68fa-4925-b9bf-a99d101003ce';
+const BUILDINGS_FORM_ID = 'f0f581c6-a6b8-4bee-a6b2-fd81b67f29bc';
+const API_BASE = 'https://api.fulcrumapp.com/api/v2';
+
+// Real Fulcrum field codes, confirmed from live API responses on 6/20/2026.
+// These can change if fields are renamed/recreated in Fulcrum — re-check
+// via the Network tab if something stops matching.
+const FIELD = {
+  vfd_unit_id: '59f0',          // VFD PM: linked record -> Equipment Registry
+  vfd_visit_date: '1320',
+  vfd_technician: '2450',
+  vfd_unit_result: '27f0',
+  vfd_note: '1b98',
+  vfd_make_model: '46d2',
+  vfd_unit_voltage: 'af00',
+  vfd_overall_condition: '9760',
+  vfd_wo_number: '3e7b',
+
+  eq_unit_tag: 'd4d0',           // Equipment Registry: unit name/tag
+  eq_location: '39e0',           // Equipment Registry: floor/location
+  eq_building: '66fc',           // Equipment Registry: building name (plain text)
+  eq_building_link: 'd530'       // Equipment Registry: linked record -> Clients & Buildings
+};
+
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+let buildingsCache = null;       // all Clients & Buildings records
+let equipmentCache = null;       // all Equipment Registry records
+let selectedBuilding = null;     // { id, name }
+let selectedUnit = null;         // { id, name }
+let buildingActiveIdx = -1;
+let unitActiveIdx = -1;
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadBuildings();
+
+  // Support deep link: ?building=LaGuardia%20Airport&unit=CHWP-2
+  const params = new URLSearchParams(window.location.search);
+  const buildingParam = params.get('building');
+  const unitParam = params.get('unit');
+
+  if (buildingParam) {
+    const match = buildingsCache.find(b =>
+      b.name.toLowerCase().trim() === buildingParam.toLowerCase().trim()
+    );
+    if (match) {
+      await selectBuilding(match);
+      if (unitParam) {
+        await loadEquipmentForBuilding(match.name);
+        const unitMatch = equipmentCache.find(u =>
+          u.name.toLowerCase().trim() === unitParam.toLowerCase().trim()
+        );
+        if (unitMatch) selectUnit(unitMatch);
+      }
+    }
+  }
+});
+
+async function loadBuildings() {
+  try {
+    const url = `${API_BASE}/records.json?form_id=${BUILDINGS_FORM_ID}`;
+    const resp = await fetch(url, { headers: { 'X-ApiToken': API_TOKEN } });
+    if (!resp.ok) throw new Error(`Buildings API returned ${resp.status}`);
+    const data = await resp.json();
+    // Buildings app title is typically the record's own display title.
+    // We use record_name-equivalent: the record's first text-ish field
+    // isn't reliable across apps, so we fall back to a generic title lookup.
+    buildingsCache = (data.records || []).map(r => ({
+      id: r.id,
+      name: getRecordTitle(r)
+    })).filter(b => b.name);
+  } catch (err) {
+    document.getElementById('buildingInput').placeholder = 'Error loading buildings — see console';
+    console.error(err);
+  }
+}
+
+// Confirmed field codes on Clients & Buildings (from live API response,
+// records.json?form_id=f0f581c6-a6b8-4bee-a6b2-fd81b67f29bc, checked 6/2026):
+//   41a0 = Client Name   (e.g. "Tishman Speyer")
+//   6ff1 = Address       (e.g. " 10 Rockefeller Plaza ")  <- what techs search by
+//   add0 = Contact Name  (e.g. "Brendan Whalen ")
+//   67c7 = Phone         (e.g. "(631) 327-2231")
+// Address values come back with stray leading/trailing spaces — always trim.
+const BUILDING_NAME_FIELD_CODE = '6ff1';
+
+function getRecordTitle(record) {
+  const raw = record.form_values?.[BUILDING_NAME_FIELD_CODE];
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+}
+
+async function loadEquipmentForBuilding(buildingName) {
+  if (equipmentCache && equipmentCache._forBuilding === buildingName) return;
+
+  document.getElementById('unitInput').placeholder = 'Loading units…';
+  const url = `${API_BASE}/records.json?form_id=${EQUIPMENT_FORM_ID}`;
+  const resp = await fetch(url, { headers: { 'X-ApiToken': API_TOKEN } });
+  if (!resp.ok) throw new Error(`Equipment API returned ${resp.status}`);
+  const data = await resp.json();
+
+  const norm = (s) => (s || '').toLowerCase().trim();
+  equipmentCache = (data.records || [])
+    .filter(r => norm(r.form_values[FIELD.eq_building]) === norm(buildingName))
+    .map(r => ({
+      id: r.id,
+      name: r.form_values[FIELD.eq_unit_tag] || '(unnamed unit)',
+      location: r.form_values[FIELD.eq_location] || ''
+    }));
+  equipmentCache._forBuilding = buildingName;
+  document.getElementById('unitInput').placeholder = 'Type to search units…';
+}
+
+// ─────────────────────────────────────────────────────────────
+// BUILDING TYPE-AHEAD
+// ─────────────────────────────────────────────────────────────
+const buildingInput = document.getElementById('buildingInput');
+const buildingList = document.getElementById('buildingList');
+
+buildingInput.addEventListener('input', () => {
+  const q = buildingInput.value.trim().toLowerCase();
+  buildingActiveIdx = -1;
+  if (!buildingsCache || q.length === 0) {
+    buildingList.classList.remove('open');
+    return;
+  }
+  const matches = buildingsCache.filter(b => b.name.toLowerCase().includes(q)).slice(0, 30);
+  renderBuildingList(matches);
+});
+
+buildingInput.addEventListener('keydown', (e) => {
+  const items = buildingList.querySelectorAll('.typeahead-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); buildingActiveIdx = Math.min(buildingActiveIdx + 1, items.length - 1); highlightActive(items, buildingActiveIdx); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); buildingActiveIdx = Math.max(buildingActiveIdx - 1, 0); highlightActive(items, buildingActiveIdx); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (items[buildingActiveIdx]) items[buildingActiveIdx].click(); }
+});
+
+function renderBuildingList(matches) {
+  if (matches.length === 0) {
+    buildingList.innerHTML = '<div class="typeahead-item" style="color:#999;">No matches</div>';
+    buildingList.classList.add('open');
+    return;
+  }
+  buildingList.innerHTML = matches.map((b, i) =>
+    `<div class="typeahead-item" data-idx="${i}" onclick='selectBuildingByIndex(${i})'>${escapeHtml(b.name)}</div>`
+  ).join('');
+  buildingList._matches = matches;
+  buildingList.classList.add('open');
+}
+
+function selectBuildingByIndex(i) {
+  const b = buildingList._matches[i];
+  selectBuilding(b);
+}
+
+async function selectBuilding(building) {
+  selectedBuilding = building;
+  buildingInput.value = '';
+  buildingList.classList.remove('open');
+  buildingInput.style.display = 'none';
+  document.getElementById('buildingChip').classList.add('show');
+  document.getElementById('buildingChipText').textContent = building.name;
+
+  clearUnit();
+  document.getElementById('unitInput').disabled = false;
+  document.getElementById('results').innerHTML = '<div class="state-msg">Now select a unit above.</div>';
+
+  try {
+    await loadEquipmentForBuilding(building.name);
+  } catch (err) {
+    document.getElementById('results').innerHTML = `<div class="error-box">Could not load units for this building.<br>${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function clearBuilding() {
+  selectedBuilding = null;
+  buildingInput.style.display = 'block';
+  buildingInput.value = '';
+  document.getElementById('buildingChip').classList.remove('show');
+  clearUnit();
+  document.getElementById('unitInput').disabled = true;
+  document.getElementById('unitInput').placeholder = 'Select a building first…';
+  document.getElementById('results').innerHTML = '<div class="state-msg">Select a building and unit above to view service history.</div>';
+}
+
+// ─────────────────────────────────────────────────────────────
+// UNIT TYPE-AHEAD
+// ─────────────────────────────────────────────────────────────
+const unitInput = document.getElementById('unitInput');
+const unitList = document.getElementById('unitList');
+
+unitInput.addEventListener('input', () => {
+  const q = unitInput.value.trim().toLowerCase();
+  unitActiveIdx = -1;
+  if (!equipmentCache || q.length === 0) {
+    unitList.classList.remove('open');
+    return;
+  }
+  const matches = equipmentCache.filter(u => u.name.toLowerCase().includes(q)).slice(0, 30);
+  renderUnitList(matches);
+});
+
+unitInput.addEventListener('keydown', (e) => {
+  const items = unitList.querySelectorAll('.typeahead-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); unitActiveIdx = Math.min(unitActiveIdx + 1, items.length - 1); highlightActive(items, unitActiveIdx); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); unitActiveIdx = Math.max(unitActiveIdx - 1, 0); highlightActive(items, unitActiveIdx); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (items[unitActiveIdx]) items[unitActiveIdx].click(); }
+});
+
+function renderUnitList(matches) {
+  if (matches.length === 0) {
+    unitList.innerHTML = '<div class="typeahead-item" style="color:#999;">No matches</div>';
+    unitList.classList.add('open');
+    return;
+  }
+  unitList.innerHTML = matches.map((u, i) =>
+    `<div class="typeahead-item" data-idx="${i}" onclick='selectUnitByIndex(${i})'>${escapeHtml(u.name)}${u.location ? `<div class="sub">${escapeHtml(u.location)}</div>` : ''}</div>`
+  ).join('');
+  unitList._matches = matches;
+  unitList.classList.add('open');
+}
+
+function selectUnitByIndex(i) {
+  const u = unitList._matches[i];
+  selectUnit(u);
+}
+
+function selectUnit(unit) {
+  selectedUnit = unit;
+  unitInput.value = '';
+  unitList.classList.remove('open');
+  unitInput.style.display = 'none';
+  document.getElementById('unitChip').classList.add('show');
+  document.getElementById('unitChipText').textContent = unit.name;
+  runSearch();
+}
+
+function clearUnit() {
+  selectedUnit = null;
+  unitInput.style.display = 'block';
+  unitInput.value = '';
+  document.getElementById('unitChip').classList.remove('show');
+  document.getElementById('results').innerHTML = selectedBuilding
+    ? '<div class="state-msg">Now select a unit above.</div>'
+    : '<div class="state-msg">Select a building and unit above to view service history.</div>';
+}
+
+function highlightActive(items, idx) {
+  items.forEach(it => it.classList.remove('active'));
+  if (items[idx]) items[idx].classList.add('active');
+}
+
+// Close dropdowns when clicking elsewhere
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.typeahead-wrap')) {
+    buildingList.classList.remove('open');
+    unitList.classList.remove('open');
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// SEARCH / RENDER RESULTS
+// ─────────────────────────────────────────────────────────────
+async function runSearch() {
+  if (!selectedUnit) return;
+  const results = document.getElementById('results');
+  results.innerHTML = '<div class="state-msg">Loading history…</div>';
+
+  try {
+    const vfdUrl = `${API_BASE}/records.json?form_id=${VFD_FORM_ID}`;
+    const vfdResp = await fetch(vfdUrl, { headers: { 'X-ApiToken': API_TOKEN } });
+    if (!vfdResp.ok) throw new Error(`VFD API returned ${vfdResp.status}`);
+    const vfdData = await vfdResp.json();
+    const allRecords = vfdData.records || [];
+
+    // Exact match only — selectedUnit.id is the precise Equipment Registry
+    // record_id, so there is zero ambiguity even with hundreds of
+    // similarly-named units across different buildings.
+    const matches = allRecords.filter(r => {
+      const unitLink = r.form_values[FIELD.vfd_unit_id];
+      return Array.isArray(unitLink) && unitLink[0] && unitLink[0].record_id === selectedUnit.id;
+    });
+
+    renderResults(matches);
+
+  } catch (err) {
+    results.innerHTML = `
+      <div class="error-box">
+        <strong>Could not load history.</strong><br><br>
+        ${escapeHtml(err.message)}
+      </div>
+    `;
+  }
+}
+
+function renderResults(records) {
+  const results = document.getElementById('results');
+
+  if (records.length === 0) {
+    results.innerHTML = `<div class="state-msg">No service history found for <strong>${escapeHtml(selectedUnit.name)}</strong>.</div>`;
+    return;
+  }
+
+  records.sort((a, b) => {
+    const dateA = a.form_values[FIELD.vfd_visit_date] || a.created_at;
+    const dateB = b.form_values[FIELD.vfd_visit_date] || b.created_at;
+    return new Date(dateB) - new Date(dateA);
+  });
+
+  let html = `
+    <div class="unit-banner">
+      <div class="label">Unit</div>
+      <div class="value">${escapeHtml(selectedUnit.name)}</div>
+      <div class="count">${escapeHtml(selectedBuilding.name)}${selectedUnit.location ? ' · ' + escapeHtml(selectedUnit.location) : ''}</div>
+      <div class="count">${records.length} visit${records.length === 1 ? '' : 's'} on record</div>
+    </div>
+  `;
+
+  records.forEach((r, idx) => {
+    const fv = r.form_values;
+    const rawDate = fv[FIELD.vfd_visit_date] || r.created_at;
+    const tech = getChoiceOrText(r, FIELD.vfd_technician) || 'Unknown';
+    const result = getChoiceOrText(r, FIELD.vfd_unit_result) || '';
+    const notes = fv[FIELD.vfd_note] || '';
+    const makeModel = fv[FIELD.vfd_make_model] || '';
+    const voltage = fv[FIELD.vfd_unit_voltage] || '';
+    const condition = getChoiceOrText(r, FIELD.vfd_overall_condition) || '';
+    const wo = fv[FIELD.vfd_wo_number] || '';
+
+    const statusClass = getStatusClass(result);
+
+    html += `
+      <div class="visit-card">
+        <div class="visit-head" onclick="toggleCard(${idx})">
+          <div>
+            <div class="visit-date">${escapeHtml(formatDate(rawDate))}</div>
+            <div class="visit-tech">${escapeHtml(tech)}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="status-pill ${statusClass}">${escapeHtml(result || 'No status')}</span>
+            <span class="chevron" id="chev-${idx}">▼</span>
+          </div>
+        </div>
+        <div class="visit-body" id="body-${idx}">
+          ${makeModel ? `<div class="field-row"><span class="k">Make / Model</span><span class="v">${escapeHtml(makeModel)}</span></div>` : ''}
+          ${voltage ? `<div class="field-row"><span class="k">Voltage</span><span class="v">${escapeHtml(voltage)}</span></div>` : ''}
+          ${condition ? `<div class="field-row"><span class="k">Overall Condition</span><span class="v">${escapeHtml(condition)}</span></div>` : ''}
+          ${wo ? `<div class="field-row"><span class="k">WO #</span><span class="v">${escapeHtml(wo)}</span></div>` : ''}
+          ${notes ? `<div class="notes-block"><div class="k">Notes</div>${escapeHtml(notes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  results.innerHTML = html;
+}
+
+function getChoiceOrText(record, fieldCode) {
+  const val = record.form_values[fieldCode];
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (val.choice_values && val.choice_values.length) return val.choice_values.join(', ');
+  if (val.other_values && val.other_values.length) return val.other_values.join(', ');
+  return null;
+}
+
+function toggleCard(idx) {
+  document.getElementById(`body-${idx}`).classList.toggle('open');
+  document.getElementById(`chev-${idx}`).classList.toggle('open');
+}
+
+function getStatusClass(result) {
+  if (!result) return 'status-neutral';
+  const r = result.toLowerCase();
+  if (r.includes('immediate') || r.includes('not access')) return 'status-bad';
+  if (r.includes('follow-up') || r.includes('deferred')) return 'status-watch';
+  if (r.includes('good') || r.includes('serviced')) return 'status-good';
+  return 'status-neutral';
+}
+
+function formatDate(raw) {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
