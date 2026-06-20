@@ -187,7 +187,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (match) {
       await selectBuilding(match);
       if (unitParam) {
-        await loadEquipmentForBuilding(match.address);
+        await loadEquipmentForBuilding(match.id);
         const unitMatch = equipmentCache.find(u =>
           u.name.toLowerCase().trim() === unitParam.toLowerCase().trim()
         );
@@ -217,35 +217,52 @@ async function loadBuildings() {
   }
 }
 
-// Confirmed field codes on Clients & Buildings (from live API response,
-// records.json?form_id=f0f581c6-a6b8-4bee-a6b2-fd81b67f29bc, checked 6/2026):
-//   41a0 = Client Name   (e.g. "Tishman Speyer")
-//   6ff1 = Address       (e.g. " 10 Rockefeller Plaza ")  <- what techs search by
-//   add0 = Contact Name  (e.g. "Brendan Whalen ")
-//   67c7 = Phone         (e.g. "(631) 327-2231")
-// Address values come back with stray leading/trailing spaces — always trim.
+// Confirmed field codes on Clients & Buildings (from live API responses, checked 6/2026):
+//   41a0 = Client Name    (e.g. "Tishman Speyer", "ABM")
+//   6ff1 = Address        (older field — present on the original 1,066-record
+//                          bulk import from 5/17, e.g. " 10 Rockefeller Plaza ")
+//   b1d0 = Building Name  (newer field — added to the form after the original
+//                          import, used on records created/edited since, e.g.
+//                          "LaGuardia Airport". Records using this field may
+//                          have NO 6ff1 key at all.)
+//   add0 = Contact Name   (e.g. "Brendan Whalen ")
+//   67c7 = Phone          (e.g. "(631) 327-2231")
+// A record may have either field, both, or (rarely) neither. Always prefer
+// Building Name when present since it's the more deliberate/curated field;
+// fall back to Address for older untouched records. Trim both — values come
+// back with stray leading/trailing spaces.
 const CLIENT_NAME_FIELD_CODE = '41a0';
-const BUILDING_NAME_FIELD_CODE = '6ff1';
+const BUILDING_NAME_FIELD_CODE = 'b1d0';
+const ADDRESS_FIELD_CODE = '6ff1';
+
+function getBuildingLabel(record) {
+  const values = record.form_values || {};
+  const buildingName = typeof values[BUILDING_NAME_FIELD_CODE] === 'string' ? values[BUILDING_NAME_FIELD_CODE].trim() : '';
+  const address = typeof values[ADDRESS_FIELD_CODE] === 'string' ? values[ADDRESS_FIELD_CODE].trim() : '';
+  return buildingName || address || null;
+}
 
 // Some buildings have multiple customers at the same address, so the
-// dropdown shows "Client Name — Address" to disambiguate. Each record
-// keeps its own address (for matching to Equipment Registry) separate
-// from its display label (for what the tech sees/searches).
+// dropdown shows "Client Name — Building Label" to disambiguate.
 function getRecordTitle(record) {
   const values = record.form_values || {};
   const client = typeof values[CLIENT_NAME_FIELD_CODE] === 'string' ? values[CLIENT_NAME_FIELD_CODE].trim() : '';
-  const address = typeof values[BUILDING_NAME_FIELD_CODE] === 'string' ? values[BUILDING_NAME_FIELD_CODE].trim() : '';
-  if (!address) return null;
-  return client ? `${client} — ${address}` : address;
+  const label = getBuildingLabel(record);
+  if (!label) return null;
+  return client ? `${client} — ${label}` : label;
 }
 
 function getRecordAddress(record) {
-  const raw = record.form_values?.[BUILDING_NAME_FIELD_CODE];
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+  return getBuildingLabel(record);
 }
 
-async function loadEquipmentForBuilding(buildingName) {
-  if (equipmentCache && equipmentCache._forBuilding === buildingName) return;
+// Equipment is matched to a building by its actual Record Link (FIELD.eq_building_link,
+// i.e. d530) — NOT by comparing address/building-name text. Multiple customers can
+// share the same building label ("LaGuardia Airport"), so text matching pulls every
+// customer's equipment into every other customer's record. The linked record ID is
+// the only reliable way to tell them apart.
+async function loadEquipmentForBuilding(buildingId) {
+  if (equipmentCache && equipmentCache._forBuilding === buildingId) return;
 
   document.getElementById('unitInput').placeholder = 'Loading units…';
   const url = `${API_BASE}/records.json?form_id=${EQUIPMENT_FORM_ID}`;
@@ -253,15 +270,17 @@ async function loadEquipmentForBuilding(buildingName) {
   if (!resp.ok) throw new Error(`Equipment API returned ${resp.status}`);
   const data = await resp.json();
 
-  const norm = (s) => (s || '').toLowerCase().trim();
   equipmentCache = (data.records || [])
-    .filter(r => norm(r.form_values[FIELD.eq_building]) === norm(buildingName))
+    .filter(r => {
+      const links = r.form_values[FIELD.eq_building_link];
+      return Array.isArray(links) && links.some(l => l.record_id === buildingId);
+    })
     .map(r => ({
       id: r.id,
       name: r.form_values[FIELD.eq_unit_tag] || '(unnamed unit)',
       location: r.form_values[FIELD.eq_location] || ''
     }));
-  equipmentCache._forBuilding = buildingName;
+  equipmentCache._forBuilding = buildingId;
   document.getElementById('unitInput').placeholder = 'Type to search units…';
 }
 
@@ -320,7 +339,7 @@ async function selectBuilding(building) {
   document.getElementById('results').innerHTML = '<div class="state-msg">Now select a unit above.</div>';
 
   try {
-    await loadEquipmentForBuilding(building.address);
+    await loadEquipmentForBuilding(building.id);
   } catch (err) {
     document.getElementById('results').innerHTML = `<div class="error-box">Could not load units for this building.<br>${escapeHtml(err.message)}</div>`;
   }
