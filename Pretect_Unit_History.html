@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pretect — Field Tools</title>
+<style>
+  :root {
+    --navy: #1F2D3D;
+    --navy-light: #2C3E50;
+    --red: #C0392B;
+    --gray-bg: #F4F5F7;
+    --gray-line: #DADFE3;
+    --gray-text: #5A6470;
+    --good: #2E7D32;
+    --watch: #B8860B;
+    --bad: #C0392B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: var(--gray-bg); color: var(--navy); }
+  header { background: var(--navy); color: white; padding: 14px 20px; position: sticky; top: 0; z-index: 10; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 700; }
+  header .sub { font-size: 11px; color: #AEB8C2; margin-top: 2px; }
+  .tabs { display: flex; background: var(--navy-light); position: sticky; top: 56px; z-index: 9; }
+  .tab { flex: 1; padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: #AEB8C2; cursor: pointer; border-bottom: 3px solid transparent; }
+  .tab.active { color: white; border-bottom-color: var(--red); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .step-bar { background: white; border-bottom: 1px solid var(--gray-line); padding: 12px 16px; position: sticky; top: 96px; z-index: 8; }
+  .step-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-text); margin-bottom: 5px; font-weight: 700; }
+  .typeahead-wrap { position: relative; margin-bottom: 10px; }
+  .typeahead-wrap:last-child { margin-bottom: 0; }
+  .typeahead-input { width: 100%; padding: 10px 12px; font-size: 15px; border: 1px solid var(--gray-line); border-radius: 6px; outline: none; }
+  .typeahead-input:focus { border-color: var(--navy-light); }
+  .typeahead-input:disabled { background: var(--gray-bg); color: #AEB8C2; cursor: not-allowed; }
+  .typeahead-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--gray-line); border-top: none; border-radius: 0 0 6px 6px; max-height: 220px; overflow-y: auto; z-index: 20; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+  .typeahead-list.open { display: block; }
+  .typeahead-item { padding: 10px 12px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #F0F0F0; }
+  .typeahead-item:last-child { border-bottom: none; }
+  .typeahead-item:hover, .typeahead-item.active { background: var(--gray-bg); }
+  .typeahead-item .sub { font-size: 11px; color: var(--gray-text); margin-top: 2px; }
+  .chip { display: none; align-items: center; justify-content: space-between; background: #EAF1F8; border: 1px solid #C7D7E8; border-radius: 6px; padding: 8px 12px; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .chip.show { display: flex; }
+  .chip button { color: var(--red); font-size: 11px; font-weight: 700; cursor: pointer; background: none; border: none; }
+  .wo-bar { background: white; border-bottom: 1px solid var(--gray-line); padding: 12px 16px; position: sticky; top: 96px; z-index: 8; display: flex; gap: 8px; }
+  .wo-bar input { flex: 1; padding: 10px 12px; font-size: 15px; border: 1px solid var(--gray-line); border-radius: 6px; outline: none; }
+  .wo-bar input:focus { border-color: var(--navy-light); }
+  .wo-bar button { padding: 10px 18px; font-size: 14px; font-weight: 600; background: var(--red); color: white; border: none; border-radius: 6px; cursor: pointer; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .state-msg { text-align: center; color: var(--gray-text); font-size: 14px; padding: 40px 20px; }
+  .unit-banner { background: white; border: 1px solid var(--gray-line); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+  .unit-banner .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-text); margin-bottom: 2px; }
+  .unit-banner .val { font-size: 20px; font-weight: 700; }
+  .unit-banner .meta { font-size: 13px; color: var(--gray-text); margin-top: 4px; }
+  .visit-card { background: white; border: 1px solid var(--gray-line); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .visit-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; user-select: none; }
+  .visit-head:active { background: var(--gray-bg); }
+  .visit-date { font-weight: 700; font-size: 15px; }
+  .visit-tech { font-size: 12px; color: var(--gray-text); margin-top: 2px; }
+  .pill { font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px; }
+  .pill-good { background: #E8F5E9; color: var(--good); }
+  .pill-watch { background: #FFF8E1; color: var(--watch); }
+  .pill-bad { background: #FDECEA; color: var(--bad); }
+  .pill-neutral { background: #ECEFF1; color: var(--gray-text); }
+  .visit-body { display: none; padding: 0 16px 14px 16px; border-top: 1px solid var(--gray-line); }
+  .visit-body.open { display: block; }
+  .frow { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-size: 13px; gap: 12px; }
+  .frow:last-child { border-bottom: none; }
+  .frow .k { color: var(--gray-text); flex-shrink: 0; }
+  .frow .v { text-align: right; font-weight: 500; }
+  .note-block { margin-top: 8px; padding: 10px 12px; background: var(--gray-bg); border-radius: 6px; font-size: 13px; line-height: 1.5; }
+  .note-block .k { font-weight: 700; font-size: 10px; text-transform: uppercase; color: var(--gray-text); margin-bottom: 4px; }
+  .chev { transition: transform 0.15s ease; color: var(--gray-text); font-size: 11px; }
+  .chev.open { transform: rotate(180deg); }
+  .err { background: #FDECEA; border: 1px solid #F5C6C2; color: var(--bad); padding: 14px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+  .config-note { font-size: 11px; color: var(--gray-text); text-align: center; padding: 20px 16px 8px; }
+
+  /* WO Report styles */
+  .report-header-block { background: var(--navy); color: white; border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .report-header-block h2 { margin: 0 0 4px 0; font-size: 18px; }
+  .report-header-block .meta { font-size: 12px; color: #AEB8C2; }
+  .summary-table { background: white; border: 1px solid var(--gray-line); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+  .summary-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .summary-table th { background: var(--navy); color: white; padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .summary-table td { padding: 8px 12px; border-bottom: 1px solid #F0F0F0; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:nth-child(even) td { background: var(--gray-bg); }
+  .totals-bar { display: flex; gap: 12px; margin-bottom: 14px; }
+  .total-box { flex: 1; background: white; border: 1px solid var(--gray-line); border-radius: 8px; padding: 12px; text-align: center; }
+  .total-box .num { font-size: 28px; font-weight: 700; }
+  .total-box .lbl { font-size: 11px; color: var(--gray-text); margin-top: 2px; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-text); margin: 16px 0 8px; }
+  @media print {
+    .tabs, .wo-bar, .step-bar, header, .config-note { display: none !important; }
+    .panel { display: block !important; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PRETECT — Field Tools</h1>
+  <div class="sub">Unit history lookup & visit reports</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('history')">Unit History</div>
+  <div class="tab" onclick="switchTab('report')">Visit Report (WO#)</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- TAB 1: UNIT HISTORY                                -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="panel-history" class="panel active">
+  <div class="step-bar">
+    <div class="step-label">1. Building / Address</div>
+    <div class="typeahead-wrap">
+      <input type="text" id="buildingInput" class="typeahead-input" placeholder="Type building name or address…" autocomplete="off" />
+      <div id="buildingList" class="typeahead-list"></div>
+    </div>
+    <div id="buildingChip" class="chip">
+      <span id="buildingChipText"></span>
+      <button onclick="clearBuilding()">CHANGE</button>
+    </div>
+
+    <div class="step-label" style="margin-top:10px;">2. Unit ID</div>
+    <div class="typeahead-wrap">
+      <input type="text" id="unitInput" class="typeahead-input" placeholder="Select a building first…" autocomplete="off" disabled />
+      <div id="unitList" class="typeahead-list"></div>
+    </div>
+    <div id="unitChip" class="chip">
+      <span id="unitChipText"></span>
+      <button onclick="clearUnit()">CHANGE</button>
+    </div>
+  </div>
+  <main id="historyResults">
+    <div class="state-msg">Select a building and unit to view service history.</div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- TAB 2: VISIT REPORT                                -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="panel-report" class="panel">
+  <div class="wo-bar">
+    <input type="text" id="woInput" placeholder="Enter BlueFolder WO #…" autocomplete="off" />
+    <button onclick="runWoReport()">Generate</button>
+  </div>
+  <main id="reportResults">
+    <div class="state-msg">Enter a WO number above to generate a visit summary report.</div>
+  </main>
+</div>
+
+<div class="config-note">Internal tool — Pretect field use only</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// CONFIG — real field codes confirmed from live API 6/20/2026
+// ─────────────────────────────────────────────────────────────
+const API_TOKEN = 'd6223d4f0377f79f283b2afcfc3726661188a4feb047f9519e7720c67636adb15e5e4141118dac6b';
+const VFD_FORM_ID   = '6c231c72-8a9b-403c-86fc-8ed66e4dc919';
+const EQ_FORM_ID    = '0bf1e57e-68fa-4925-b9bf-a99d101003ce';
+const API_BASE      = 'https://api.fulcrumapp.com/api/v2';
+
+const F = {
+  // VFD PM fields
+  unit_id:     '59f0',  // linked -> Equipment Registry
+  visit_date:  '1320',
+  technician:  '2450',  // choice
+  unit_result: '27f0',  // choice
+  note:        '1b98',
+  make_model:  '46d2',
+  voltage:     'af00',
+  condition:   '9760',  // choice
+  wo:          '3e7b',
+  // Equipment Registry fields
+  eq_tag:      'd4d0',  // unit name e.g. "CHWP-2"
+  eq_location: '39e0',  // floor/area
+  eq_building: '66fc',  // plain text building name
+  eq_voltage:  '6e97',
+  eq_hp:       '4b05',
+  eq_fla:      '2080',
+  eq_model:    '77d9',
+  eq_type:     '3727',  // Drive/Bypass/Starter choice
+};
+
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+let eqCache      = null;  // all Equipment Registry records
+let vfdCache     = null;  // all VFD PM records
+let buildings    = [];    // unique building name strings
+let selectedBldg = null;  // string
+let selectedUnit = null;  // { id, name, location }
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadAll();
+
+  // Deep-link support: ?building=LaGuardia&unit=CHWP-2 or ?wo=TEST
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('wo')) {
+    switchTab('report');
+    document.getElementById('woInput').value = p.get('wo');
+    runWoReport();
+  } else if (p.get('building')) {
+    const bldg = buildings.find(b => b.toLowerCase().trim() === p.get('building').toLowerCase().trim());
+    if (bldg) {
+      selectBuilding(bldg);
+      if (p.get('unit')) {
+        const u = unitsForBuilding(bldg).find(u => u.name.toLowerCase() === p.get('unit').toLowerCase());
+        if (u) selectUnit(u);
+      }
+    }
+  }
+});
+
+async function loadAll() {
+  try {
+    // Load Equipment Registry
+    const eqResp = await fetch(`${API_BASE}/records.json?form_id=${EQ_FORM_ID}`, { headers: { 'X-ApiToken': API_TOKEN } });
+    if (!eqResp.ok) throw new Error(`Equipment API ${eqResp.status}`);
+    const eqData = await eqResp.json();
+    eqCache = eqData.records || [];
+
+    // Extract unique building names from eq_building field (66fc)
+    const seen = new Set();
+    buildings = [];
+    eqCache.forEach(r => {
+      const b = (r.form_values[F.eq_building] || '').trim();
+      if (b && !seen.has(b.toLowerCase())) { seen.add(b.toLowerCase()); buildings.push(b); }
+    });
+    buildings.sort();
+
+    // Load VFD PM records
+    const vfdResp = await fetch(`${API_BASE}/records.json?form_id=${VFD_FORM_ID}`, { headers: { 'X-ApiToken': API_TOKEN } });
+    if (!vfdResp.ok) throw new Error(`VFD API ${vfdResp.status}`);
+    const vfdData = await vfdResp.json();
+    vfdCache = vfdData.records || [];
+
+    document.getElementById('buildingInput').placeholder = 'Type building name or address…';
+  } catch (err) {
+    document.getElementById('buildingInput').placeholder = 'Error loading data — refresh to retry';
+    console.error(err);
+  }
+}
+
+function unitsForBuilding(bldgName) {
+  if (!eqCache) return [];
+  return eqCache
+    .filter(r => (r.form_values[F.eq_building] || '').trim().toLowerCase() === bldgName.toLowerCase().trim())
+    .map(r => ({ id: r.id, name: r.form_values[F.eq_tag] || '(unnamed)', location: r.form_values[F.eq_location] || '' }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0) === (tab === 'history')));
+  document.getElementById('panel-history').classList.toggle('active', tab === 'history');
+  document.getElementById('panel-report').classList.toggle('active', tab === 'report');
+}
+
+// ─────────────────────────────────────────────────────────────
+// BUILDING TYPE-AHEAD
+// ─────────────────────────────────────────────────────────────
+const bldgInput = document.getElementById('buildingInput');
+const bldgList  = document.getElementById('buildingList');
+let bldgIdx = -1;
+
+bldgInput.addEventListener('input', () => {
+  const q = bldgInput.value.trim().toLowerCase();
+  bldgIdx = -1;
+  if (!q) { bldgList.classList.remove('open'); return; }
+  const hits = buildings.filter(b => b.toLowerCase().includes(q)).slice(0, 30);
+  bldgList.innerHTML = hits.length
+    ? hits.map((b, i) => `<div class="typeahead-item" onclick="selectBuilding('${escHtml(b)}')">${escHtml(b)}</div>`).join('')
+    : '<div class="typeahead-item" style="color:#999">No matches</div>';
+  bldgList._hits = hits;
+  bldgList.classList.add('open');
+});
+
+bldgInput.addEventListener('keydown', e => {
+  const items = bldgList.querySelectorAll('.typeahead-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); bldgIdx = Math.min(bldgIdx+1, items.length-1); hilite(items, bldgIdx); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); bldgIdx = Math.max(bldgIdx-1, 0); hilite(items, bldgIdx); }
+  else if (e.key === 'Enter' && bldgList._hits && bldgList._hits[bldgIdx]) { e.preventDefault(); selectBuilding(bldgList._hits[bldgIdx]); }
+});
+
+function selectBuilding(name) {
+  selectedBldg = name;
+  bldgInput.value = '';
+  bldgInput.style.display = 'none';
+  bldgList.classList.remove('open');
+  document.getElementById('buildingChip').classList.add('show');
+  document.getElementById('buildingChipText').textContent = name;
+  clearUnit();
+  document.getElementById('unitInput').disabled = false;
+  document.getElementById('unitInput').placeholder = 'Type unit ID…';
+  document.getElementById('historyResults').innerHTML = '<div class="state-msg">Now select a unit above.</div>';
+}
+
+function clearBuilding() {
+  selectedBldg = null;
+  bldgInput.style.display = 'block';
+  bldgInput.value = '';
+  document.getElementById('buildingChip').classList.remove('show');
+  clearUnit();
+  document.getElementById('unitInput').disabled = true;
+  document.getElementById('unitInput').placeholder = 'Select a building first…';
+  document.getElementById('historyResults').innerHTML = '<div class="state-msg">Select a building and unit to view service history.</div>';
+}
+
+// ─────────────────────────────────────────────────────────────
+// UNIT TYPE-AHEAD
+// ─────────────────────────────────────────────────────────────
+const unitInput = document.getElementById('unitInput');
+const unitList  = document.getElementById('unitList');
+let unitIdx = -1;
+
+unitInput.addEventListener('input', () => {
+  const q = unitInput.value.trim().toLowerCase();
+  unitIdx = -1;
+  if (!selectedBldg || !q) { unitList.classList.remove('open'); return; }
+  const hits = unitsForBuilding(selectedBldg).filter(u => u.name.toLowerCase().includes(q)).slice(0, 30);
+  unitList.innerHTML = hits.length
+    ? hits.map((u, i) => `<div class="typeahead-item" onclick="selectUnit(${JSON.stringify(u).split('"').join("'")})">${escHtml(u.name)}${u.location ? `<div class="sub">${escHtml(u.location)}</div>` : ''}</div>`).join('')
+    : '<div class="typeahead-item" style="color:#999">No matches</div>';
+  unitList._hits = hits;
+  unitList.classList.add('open');
+});
+
+unitInput.addEventListener('keydown', e => {
+  const items = unitList.querySelectorAll('.typeahead-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); unitIdx = Math.min(unitIdx+1, items.length-1); hilite(items, unitIdx); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); unitIdx = Math.max(unitIdx-1, 0); hilite(items, unitIdx); }
+  else if (e.key === 'Enter' && unitList._hits && unitList._hits[unitIdx]) { e.preventDefault(); selectUnit(unitList._hits[unitIdx]); }
+});
+
+function selectUnit(unit) {
+  if (typeof unit === 'string') unit = JSON.parse(unit.replace(/'/g, '"'));
+  selectedUnit = unit;
+  unitInput.value = '';
+  unitInput.style.display = 'none';
+  unitList.classList.remove('open');
+  document.getElementById('unitChip').classList.add('show');
+  document.getElementById('unitChipText').textContent = unit.name;
+  showUnitHistory();
+}
+
+function clearUnit() {
+  selectedUnit = null;
+  unitInput.style.display = 'block';
+  unitInput.value = '';
+  document.getElementById('unitChip').classList.remove('show');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.typeahead-wrap')) { bldgList.classList.remove('open'); unitList.classList.remove('open'); }
+});
+
+// ─────────────────────────────────────────────────────────────
+// UNIT HISTORY
+// ─────────────────────────────────────────────────────────────
+function showUnitHistory() {
+  if (!selectedUnit || !vfdCache) return;
+  const results = document.getElementById('historyResults');
+
+  const matches = vfdCache.filter(r => {
+    const link = r.form_values[F.unit_id];
+    return Array.isArray(link) && link[0] && link[0].record_id === selectedUnit.id;
+  });
+
+  if (!matches.length) {
+    results.innerHTML = `<div class="state-msg">No service history found for <strong>${escHtml(selectedUnit.name)}</strong>.</div>`;
+    return;
+  }
+
+  matches.sort((a, b) => {
+    const dA = a.form_values[F.visit_date] || a.created_at;
+    const dB = b.form_values[F.visit_date] || b.created_at;
+    return new Date(dB) - new Date(dA);
+  });
+
+  let html = `
+    <div class="unit-banner">
+      <div class="lbl">Unit</div>
+      <div class="val">${escHtml(selectedUnit.name)}</div>
+      <div class="meta">${escHtml(selectedBldg)}${selectedUnit.location ? ' · ' + escHtml(selectedUnit.location) : ''}</div>
+      <div class="meta">${matches.length} visit${matches.length === 1 ? '' : 's'} on record</div>
+    </div>
+  `;
+
+  matches.forEach((r, idx) => {
+    const fv = r.form_values;
+    const date    = fv[F.visit_date] || r.created_at;
+    const tech    = choice(r, F.technician) || 'Unknown';
+    const result  = choice(r, F.unit_result) || '';
+    const notes   = fv[F.note] || '';
+    const model   = fv[F.make_model] || '';
+    const volts   = fv[F.voltage] || '';
+    const cond    = choice(r, F.condition) || '';
+    const wo      = fv[F.wo] || '';
+
+    html += `
+      <div class="visit-card">
+        <div class="visit-head" onclick="tog(${idx})">
+          <div>
+            <div class="visit-date">${escHtml(fmtDate(date))}</div>
+            <div class="visit-tech">${escHtml(tech)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pill ${pillClass(result)}">${escHtml(result || 'No status')}</span>
+            <span class="chev" id="chev-${idx}">▼</span>
+          </div>
+        </div>
+        <div class="visit-body" id="body-${idx}">
+          ${model  ? `<div class="frow"><span class="k">Make / Model</span><span class="v">${escHtml(model)}</span></div>` : ''}
+          ${volts  ? `<div class="frow"><span class="k">Voltage</span><span class="v">${escHtml(volts)}</span></div>` : ''}
+          ${cond   ? `<div class="frow"><span class="k">Overall Condition</span><span class="v">${escHtml(cond)}</span></div>` : ''}
+          ${wo     ? `<div class="frow"><span class="k">WO #</span><span class="v">${escHtml(wo)}</span></div>` : ''}
+          ${notes  ? `<div class="note-block"><div class="k">Notes</div>${escHtml(notes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  results.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// WO VISIT REPORT
+// ─────────────────────────────────────────────────────────────
+function runWoReport() {
+  const wo = document.getElementById('woInput').value.trim();
+  if (!wo || !vfdCache) return;
+  const results = document.getElementById('reportResults');
+  results.innerHTML = '<div class="state-msg">Generating report…</div>';
+
+  // Match all VFD PM records with this WO#
+  const matches = vfdCache.filter(r => (r.form_values[F.wo] || '').trim().toLowerCase() === wo.toLowerCase());
+
+  if (!matches.length) {
+    results.innerHTML = `<div class="state-msg">No records found for WO# <strong>${escHtml(wo)}</strong>.</div>`;
+    return;
+  }
+
+  // Sort by visit date
+  matches.sort((a, b) => {
+    const dA = a.form_values[F.visit_date] || a.created_at;
+    const dB = b.form_values[F.visit_date] || b.created_at;
+    return new Date(dA) - new Date(dB);
+  });
+
+  // Resolve unit names from Equipment Registry
+  const eqById = {};
+  if (eqCache) eqCache.forEach(r => { eqById[r.id] = r; });
+
+  // Build augmented records with resolved unit info
+  const rows = matches.map((r, i) => {
+    const fv = r.form_values;
+    const link = fv[F.unit_id];
+    const eqId = Array.isArray(link) && link[0] ? link[0].record_id : null;
+    const eq = eqId ? eqById[eqId] : null;
+    return {
+      num: i + 1,
+      unitName: eq ? (eq.form_values[F.eq_tag] || '?') : '?',
+      location: eq ? (eq.form_values[F.eq_location] || '') : '',
+      makeModel: fv[F.make_model] || (eq ? eq.form_values[F.eq_model] || '' : ''),
+      voltage: fv[F.voltage] || (eq ? eq.form_values[F.eq_voltage] || '' : ''),
+      hp: eq ? eq.form_values[F.eq_hp] || '' : '',
+      fla: eq ? eq.form_values[F.eq_fla] || '' : '',
+      unitType: eq ? choice2(eq, F.eq_type) || '' : '',
+      result: choice(r, F.unit_result) || '',
+      condition: choice(r, F.condition) || '',
+      notes: fv[F.note] || '',
+      date: fv[F.visit_date] || fmtDate(r.created_at),
+      tech: choice(r, F.technician) || '',
+      vfdRecord: r
+    };
+  });
+
+  // Header info from first record
+  const first = rows[0];
+  const building = (matches[0].form_values[F.eq_building] || vfdCache[0]?.form_values['6abb'] || '');
+  const dateRange = rows.length > 1
+    ? `${fmtDate(rows[0].date)} – ${fmtDate(rows[rows.length-1].date)}`
+    : fmtDate(rows[0].date);
+  const techs = [...new Set(rows.map(r => r.tech).filter(Boolean))].join(', ');
+
+  const totalPmd = rows.length;
+  const withIssues = rows.filter(r => r.notes || r.result.toLowerCase().includes('follow') || r.result.toLowerCase().includes('immediate') || r.result.toLowerCase().includes('not access')).length;
+
+  let html = `
+    <div class="report-header-block">
+      <h2>VFD Condition Summary</h2>
+      <div class="meta">WO# ${escHtml(wo)} &nbsp;·&nbsp; ${escHtml(dateRange)}</div>
+      ${techs ? `<div class="meta">Technician(s): ${escHtml(techs)}</div>` : ''}
+    </div>
+
+    <div class="totals-bar">
+      <div class="total-box"><div class="num">${totalPmd}</div><div class="lbl">Drives PM'd</div></div>
+      <div class="total-box"><div class="num">0</div><div class="lbl">Troubleshot</div></div>
+      <div class="total-box"><div class="num">${withIssues}</div><div class="lbl">With Issues</div></div>
+    </div>
+
+    <div class="summary-table">
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Unit ID</th>
+          <th>Location</th>
+          <th>Result</th>
+          <th>Issues / Notes</th>
+        </tr>
+        ${rows.map(r => `
+          <tr>
+            <td>${r.num}</td>
+            <td><strong>${escHtml(r.unitName)}</strong></td>
+            <td>${escHtml(r.location)}</td>
+            <td><span class="pill ${pillClass(r.result)}">${escHtml(r.result || '—')}</span></td>
+            <td style="font-size:12px;">${escHtml(r.notes || '—')}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+
+    <div class="section-title">Unit Details</div>
+  `;
+
+  // Detail cards per unit
+  rows.forEach((r, idx) => {
+    html += `
+      <div class="visit-card">
+        <div class="visit-head" onclick="tog('wo-${idx}')">
+          <div>
+            <div class="visit-date">${escHtml(r.unitName)}</div>
+            <div class="visit-tech">${escHtml(r.location)} &nbsp;·&nbsp; ${escHtml(fmtDate(r.date))}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pill ${pillClass(r.result)}">${escHtml(r.result || 'No status')}</span>
+            <span class="chev" id="chev-wo-${idx}">▼</span>
+          </div>
+        </div>
+        <div class="visit-body" id="body-wo-${idx}">
+          ${r.makeModel ? `<div class="frow"><span class="k">Make / Model</span><span class="v">${escHtml(r.makeModel)}</span></div>` : ''}
+          ${r.voltage   ? `<div class="frow"><span class="k">Voltage</span><span class="v">${escHtml(r.voltage)}</span></div>` : ''}
+          ${r.hp        ? `<div class="frow"><span class="k">HP</span><span class="v">${escHtml(r.hp)}</span></div>` : ''}
+          ${r.fla       ? `<div class="frow"><span class="k">FLA</span><span class="v">${escHtml(r.fla)}</span></div>` : ''}
+          ${r.unitType  ? `<div class="frow"><span class="k">Type</span><span class="v">${escHtml(r.unitType)}</span></div>` : ''}
+          ${r.condition ? `<div class="frow"><span class="k">Overall Condition</span><span class="v">${escHtml(r.condition)}</span></div>` : ''}
+          ${r.notes     ? `<div class="note-block"><div class="k">Notes / Issues</div>${escHtml(r.notes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  results.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+function tog(idx) {
+  document.getElementById(`body-${idx}`).classList.toggle('open');
+  document.getElementById(`chev-${idx}`).classList.toggle('open');
+}
+
+function choice(record, code) {
+  const v = record.form_values[code];
+  if (!v) return null;
+  if (typeof v === 'string') return v;
+  if (v.choice_values?.length) return v.choice_values.join(', ');
+  if (v.other_values?.length) return v.other_values.join(', ');
+  return null;
+}
+
+function choice2(record, code) {
+  return choice(record, code);
+}
+
+function pillClass(result) {
+  if (!result) return 'pill-neutral';
+  const r = result.toLowerCase();
+  if (r.includes('immediate') || r.includes('not access')) return 'pill-bad';
+  if (r.includes('follow') || r.includes('deferred')) return 'pill-watch';
+  if (r.includes('good') || r.includes('serviced')) return 'pill-good';
+  return 'pill-neutral';
+}
+
+function fmtDate(raw) {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function hilite(items, idx) {
+  items.forEach(it => it.classList.remove('active'));
+  if (items[idx]) items[idx].classList.add('active');
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
